@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MineVideos - AI 视频生成</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #12121a;
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --bg-card-hover: rgba(255, 255, 255, 0.07);
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --text-primary: #e8e8ec;
+  --text-secondary: #8a8a9a;
+  --text-muted: #55556a;
+  --accent: #6c5ce7;
+  --accent-hover: #7c6cf7;
+  --accent-glow: rgba(108, 92, 231, 0.3);
+  --success: #00c853;
+  --error: #ff5252;
+  --warning: #ffab40;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --transition: 0.2s ease;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* Background gradient orbs */
+body::before, body::after {
+  content: '';
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 0;
+}
+body::before {
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, #6c5ce7, transparent 70%);
+  top: -200px; left: -100px;
+}
+body::after {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, #00b4d8, transparent 70%);
+  bottom: -150px; right: -100px;
+}
+
+.app-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+.header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #e8e8ec 0%, #6c5ce7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 6px;
+}
+.header p {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* Glass panel */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow);
+  padding: 28px;
+  margin-bottom: 20px;
+}
+
+/* Auth Section */
+.auth-section { }
+
+.tab-bar {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--glass-border);
+}
+.tab-btn {
+  flex: 1;
+  padding: 12px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.tab-btn:hover { color: var(--text-secondary); }
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+.form-group label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  transition: var(--transition);
+  outline: none;
+}
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+.form-group select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238a8a9a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+.form-group select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.char-count {
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Toggle switch */
+.toggle-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.toggle-group span {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+}
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  transition: var(--transition);
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: var(--text-secondary);
+  border-radius: 50%;
+  transition: var(--transition);
+}
+.toggle input:checked + .toggle-slider {
+  background: var(--accent);
+}
+.toggle input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+  background: #fff;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: inherit;
+}
+.btn-primary {
+  width: 100%;
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 20px var(--accent-glow);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border);
+}
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+/* Inline radio group */
+.radio-group {
+  display: flex;
+  gap: 8px;
+}
+.radio-option {
+  flex: 1;
+  padding: 8px 12px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: var(--transition);
+}
+.radio-option:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.radio-option.active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+/* Status badge */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.badge-submitted { background: rgba(108,92,231,0.15); color: #a29bfe; }
+.badge-processing { background: rgba(255,171,64,0.15); color: #ffab40; }
+.badge-completed { background: rgba(0,200,83,0.15); color: #00c853; }
+.badge-failed { background: rgba(255,82,82,0.15); color: #ff5252; }
+
+/* Progress bar */
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #a29bfe);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+/* Task card */
+.task-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: var(--transition);
+}
+.task-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.task-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.task-id {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+.task-prompt {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Video player */
+.video-wrapper {
+  margin-top: 12px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #000;
+}
+.video-wrapper video {
+  width: 100%;
+  display: block;
+  max-height: 450px;
+}
+
+/* Error message */
+.error-msg {
+  color: var(--error);
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+/* Toast notification */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  animation: slideIn 0.3s ease;
+  max-width: 360px;
+}
+.toast-success { background: rgba(0,200,83,0.15); color: #00c853; }
+.toast-error { background: rgba(255,82,82,0.15); color: #ff5252; }
+.toast-info { background: rgba(108,92,231,0.15); color: #a29bfe; }
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Section titles */
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title .icon {
+  font-size: 18px;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Hidden */
+.hidden { display: none !important; }
+
+/* User bar */
+.user-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+}
+.user-info {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.user-info strong {
+  color: var(--text-primary);
+}
+
+/* Loading spinner */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .app-container { padding: 20px 12px; }
+  .glass-panel { padding: 20px; }
+  .radio-group { flex-wrap: wrap; }
+  .radio-option { flex: 1 1 auto; min-width: 70px; }
+}
+</style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="app-container">
+  <div class="header">
+    <h1>🎬 MineVideos</h1>
+    <p>AI 视频生成 · 极简创作</p>
+  </div>
+
+  <!-- Auth Panel -->
+  <div class="glass-panel auth-section" id="authPanel">
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="login" onclick="switchTab('login')">登录</button>
+      <button class="tab-btn" data-tab="register" onclick="switchTab('register')">注册</button>
+    </div>
+
+    <form id="authForm" onsubmit="handleAuth(event)">
+      <div class="form-group hidden" id="usernameGroup">
+        <label>用户名</label>
+        <input type="text" id="usernameInput" placeholder="设置用户名">
+      </div>
+      <div class="form-group">
+        <label>邮箱</label>
+        <input type="email" id="emailInput" placeholder="your@email.com" required>
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="passwordInput" placeholder="至少 6 位" required>
+      </div>
+      <div id="authError" class="error-msg hidden"></div>
+      <button type="submit" class="btn btn-primary" id="authSubmitBtn" style="margin-top:8px">
+        登录
+      </button>
+    </form>
+  </div>
+
+  <!-- User Bar (shown after login) -->
+  <div class="user-bar hidden" id="userBar">
+    <div class="user-info">已登录: <strong id="userEmail"></strong></div>
+    <button class="btn btn-sm btn-ghost" onclick="handleLogout()">退出</button>
+  </div>
+
+  <!-- Generate Section -->
+  <div class="glass-panel hidden" id="generatePanel">
+    <div class="section-title"><span class="icon">✨</span> 生成视频</div>
+
+    <form id="generateForm" onsubmit="handleGenerate(event)">
+      <div class="form-group">
+        <label>视频描述 (Prompt)</label>
+        <textarea id="promptInput" maxlength="2000" rows="3" placeholder="描述你想要生成的视频内容..." required oninput="updateCharCount()"></textarea>
+        <div class="char-count"><span id="charCount">0</span> / 2000</div>
+      </div>
+
+      <div class="form-group">
+        <label>时长</label>
+        <div class="radio-group" id="durationGroup">
+          <div class="radio-option active" data-value="5" onclick="selectRadio('duration', '5', this)">5 秒</div>
+          <div class="radio-option" data-value="11" onclick="selectRadio('duration', '11', this)">11 秒</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>比例</label>
+        <div class="radio-group" id="ratioGroup">
+          <div class="radio-option active" data-value="16:9" onclick="selectRadio('ratio', '16:9', this)">16:9</div>
+          <div class="radio-option" data-value="9:16" onclick="selectRadio('ratio', '9:16', this)">9:16</div>
+          <div class="radio-option" data-value="1:1" onclick="selectRadio('ratio', '1:1', this)">1:1</div>
+        </div>
+      </div>
+
+      <div class="toggle-group">
+        <span>生成音频</span>
+        <label class="toggle">
+          <input type="checkbox" id="audioToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div id="generateError" class="error-msg hidden"></div>
+      <button type="submit" class="btn btn-primary" id="generateBtn">
+        🎬 开始生成
+      </button>
+    </form>
+  </div>
+
+  <!-- Current Task Section -->
+  <div class="glass-panel hidden" id="currentTaskPanel">
+    <div class="section-title"><span class="icon">⏳</span> 当前任务</div>
+    <div id="currentTaskContent"></div>
+  </div>
+
+  <!-- History Section -->
+  <div class="glass-panel hidden" id="historyPanel">
+    <div class="section-title"><span class="icon">📋</span> 历史任务</div>
+    <div id="historyContent"></div>
+  </div>
+</div>
+
+<script>
+// ===== Config =====
+const API_BASE = 'https://web-production-63b22.up.railway.app/api/v1';
+
+// ===== State =====
+let currentTab = 'login';
+let currentTaskId = null;
+let pollTimer = null;
+let formState = {
+  duration: '5',
+  ratio: '16:9'
+};
+
+// ===== Init =====
+(function init() {
+  const token = localStorage.getItem('mv_token');
+  if (token) {
+    showMainUI();
+    loadHistory();
+  }
+})();
+
+// ===== Toast =====
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = '0.3s'; setTimeout(() => el.remove(), 300); }, 3500);
+}
+
+// ===== Auth =====
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById('usernameGroup').classList.toggle('hidden', tab === 'login');
+  document.getElementById('authSubmitBtn').textContent = tab === 'login' ? '登录' : '注册';
+  document.getElementById('authError').classList.add('hidden');
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const email = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('passwordInput').value;
+  const errEl = document.getElementById('authError');
+  const btn = document.getElementById('authSubmitBtn');
+
+  errEl.classList.add('hidden');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> ' + (currentTab === 'login' ? '登录中...' : '注册中...');
+
+  try {
+    if (currentTab === 'register') {
+      const username = document.getElementById('usernameInput').value.trim();
+      if (!username) throw new Error('请填写用户名');
+      const res = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, username })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || data.message || `注册失败 (${res.status})`);
+      }
+      showToast('注册成功，请登录', 'success');
+      switchTab('login');
+      btn.disabled = false;
+      btn.textContent = '登录';
+      return;
+    }
+
+    // Login
+    const res = await fetch(`${API_BASE}/auth/login/json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || data.message || `登录失败 (${res.status})`);
+    }
+    const data = await res.json();
+    localStorage.setItem('mv_token', data.access_token);
+    localStorage.setItem('mv_user_id', data.user_id);
+    localStorage.setItem('mv_email', email);
+    showToast('登录成功', 'success');
+    showMainUI();
+    loadHistory();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    if (btn.querySelector('.spinner')) btn.textContent = currentTab === 'login' ? '登录' : '注册';
+  }
+}
+
+function handleLogout() {
+  localStorage.removeItem('mv_token');
+  localStorage.removeItem('mv_user_id');
+  localStorage.removeItem('mv_email');
+  stopPolling();
+  currentTaskId = null;
+  document.getElementById('authPanel').classList.remove('hidden');
+  document.getElementById('userBar').classList.add('hidden');
+  document.getElementById('generatePanel').classList.add('hidden');
+  document.getElementById('currentTaskPanel').classList.add('hidden');
+  document.getElementById('historyPanel').classList.add('hidden');
+  showToast('已退出', 'info');
+}
+
+function showMainUI() {
+  document.getElementById('authPanel').classList.add('hidden');
+  document.getElementById('userBar').classList.remove('hidden');
+  document.getElementById('generatePanel').classList.remove('hidden');
+  document.getElementById('historyPanel').classList.remove('hidden');
+  document.getElementById('userEmail').textContent = localStorage.getItem('mv_email') || '';
+}
+
+// ===== Radio Selection =====
+function selectRadio(group, value, el) {
+  formState[group] = value;
+  el.parentElement.querySelectorAll('.radio-option').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function updateCharCount() {
+  const count = document.getElementById('promptInput').value.length;
+  document.getElementById('charCount').textContent = count;
+}
+
+// ===== Generate =====
+async function handleGenerate(e) {
+  e.preventDefault();
+  const token = localStorage.getItem('mv_token');
+  if (!token) return;
+
+  const prompt = document.getElementById('promptInput').value.trim();
+  if (!prompt) return;
+
+  const errEl = document.getElementById('generateError');
+  const btn = document.getElementById('generateBtn');
+  errEl.classList.add('hidden');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 提交中...';
+
+  const body = {
+    prompt,
+    duration: parseInt(formState.duration),
+    ratio: formState.ratio,
+    generate_audio: document.getElementById('audioToggle').checked,
+    image_url: null,
+    model: null
+  };
+
+  try {
+    const res = await fetch(`${API_BASE}/video/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) { handleLogout(); throw new Error('登录已过期，请重新登录'); }
+      throw new Error(data.detail || data.message || `提交失败 (${res.status})`);
+    }
+    const data = await res.json();
+    currentTaskId = data.task_id;
+    showToast('任务已提交: ' + data.task_id, 'success');
+
+    // Show current task
+    document.getElementById('currentTaskPanel').classList.remove('hidden');
+    renderTaskCard(data.task_id, data.status || 'submitted', 0, prompt);
+
+    // Start polling
+    startPolling(data.task_id);
+
+    // Reset form
+    document.getElementById('promptInput').value = '';
+    document.getElementById('charCount').textContent = '0';
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🎬 开始生成';
+  }
+}
+
+// ===== Task Rendering =====
+function renderTaskCard(taskId, status, progress, prompt) {
+  const container = document.getElementById('currentTaskContent');
+  const badgeClass = `badge-${status}`;
+  const statusLabels = { submitted: '已提交', processing: '生成中', completed: '已完成', failed: '失败' };
+
+  let html = `
+    <div class="task-card">
+      <div class="task-card-header">
+        <span class="task-id">${taskId}</span>
+        <span class="badge ${badgeClass}">${statusLabels[status] || status}</span>
+      </div>
+  `;
+  if (prompt) {
+    html += `<div class="task-prompt">${escapeHtml(prompt)}</div>`;
+  }
+  if (status === 'processing' || status === 'submitted') {
+    html += `
+      <div class="task-meta"><span>${status === 'submitted' ? '等待处理...' : `进度 ${progress}%`}</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
+    `;
+  }
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+function renderVideoTask(taskId, videoUrl, prompt) {
+  const container = document.getElementById('currentTaskContent');
+  const badgeClass = 'badge-completed';
+  container.innerHTML = `
+    <div class="task-card">
+      <div class="task-card-header">
+        <span class="task-id">${taskId}</span>
+        <span class="badge ${badgeClass}">已完成</span>
+      </div>
+      <div class="task-prompt">${escapeHtml(prompt || '')}</div>
+      <div class="video-wrapper">
+        <video controls autoplay>
+          <source src="${videoUrl}" type="video/mp4">
+          您的浏览器不支持视频播放
+        </video>
+      </div>
+    </div>
+  `;
+}
+
+function renderFailedTask(taskId, prompt) {
+  const container = document.getElementById('currentTaskContent');
+  container.innerHTML = `
+    <div class="task-card">
+      <div class="task-card-header">
+        <span class="task-id">${taskId}</span>
+        <span class="badge badge-failed">失败</span>
+      </div>
+      <div class="task-prompt">${escapeHtml(prompt || '')}</div>
+      <div class="error-msg" style="margin-top:8px">视频生成失败，请重试或更换 prompt</div>
+    </div>
+  `;
+}
+
+// ===== Polling =====
+function startPolling(taskId) {
+  stopPolling();
+  pollTimer = setInterval(() => pollTask(taskId), 5000);
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+async function pollTask(taskId) {
+  const token = localStorage.getItem('mv_token');
+  if (!token) { stopPolling(); return; }
+
+  try {
+    const res = await fetch(`${API_BASE}/video/task/${taskId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) {
+      if (res.status === 401) { handleLogout(); }
+      return;
+    }
+    const data = await res.json();
+    const status = data.status;
+    const progress = data.progress || 0;
+    const prompt = data.prompt || '';
+
+    if (status === 'completed') {
+      stopPolling();
+      renderVideoTask(taskId, data.video_url, prompt);
+      showToast('视频生成完成！', 'success');
+      loadHistory();
+    } else if (status === 'failed') {
+      stopPolling();
+      renderFailedTask(taskId, prompt);
+      showToast('视频生成失败', 'error');
+      loadHistory();
+    } else {
+      renderTaskCard(taskId, status, progress, prompt);
+    }
+  } catch (e) {
+    console.error('Poll error:', e);
+  }
+}
+
+// ===== History =====
+async function loadHistory() {
+  const token = localStorage.getItem('mv_token');
+  if (!token) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/video/tasks`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const tasks = Array.isArray(data) ? data : (data.tasks || []);
+    renderHistory(tasks.slice(0, 10));
+  } catch (e) {
+    console.error('History load error:', e);
+  }
+}
+
+function renderHistory(tasks) {
+  const container = document.getElementById('historyContent');
+  const panel = document.getElementById('historyPanel');
+  panel.classList.remove('hidden');
+
+  if (!tasks.length) {
+    container.innerHTML = '<div class="empty-state">暂无历史任务</div>';
+    return;
+  }
+
+  const statusLabels = { submitted: '已提交', processing: '生成中', completed: '已完成', failed: '失败' };
+  let html = '';
+
+  tasks.forEach(t => {
+    const status = t.status || 'submitted';
+    const badgeClass = `badge-${status}`;
+    html += `<div class="task-card">`;
+    html += `<div class="task-card-header"><span class="task-id">${t.task_id || ''}</span><span class="badge ${badgeClass}">${statusLabels[status] || status}</span></div>`;
+    if (t.prompt) html += `<div class="task-prompt">${escapeHtml(t.prompt)}</div>`;
+
+    if (t.duration || t.ratio) {
+      html += `<div class="task-meta">`;
+      if (t.duration) html += `<span>${t.duration}s</span>`;
+      if (t.ratio) html += `<span>${t.ratio}</span>`;
+      if (t.progress !== undefined) html += `<span>${t.progress}%</span>`;
+      html += `</div>`;
+    }
+
+    if (status === 'completed' && t.video_url) {
+      html += `<div class="video-wrapper"><video controls preload="metadata"><source src="${t.video_url}" type="video/mp4">浏览器不支持</video></div>`;
+    }
+    html += `</div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+// ===== Utils =====
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
