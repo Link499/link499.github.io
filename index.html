@@ -814,7 +814,7 @@ function renderVideoTask(taskId, videoUrl, prompt) {
       <div class="task-prompt">${escapeHtml(prompt || '')}</div>
       <div class="video-wrapper">
         <video controls autoplay>
-          <source src="${videoUrl}" type="video/mp4">
+          <source src="${escapeHtml(videoUrl)}" type="video/mp4">
           您的浏览器不支持视频播放
         </video>
       </div>
@@ -931,7 +931,7 @@ function renderHistory(tasks) {
     }
 
     if (status === 'completed' && t.video_url) {
-      html += `<div class="video-wrapper"><video controls preload="metadata"><source src="${t.video_url}" type="video/mp4">浏览器不支持</video></div>`;
+      html += `<div class="video-wrapper"><video controls preload="metadata"><source src="${escapeHtml(t.video_url)}" type="video/mp4">浏览器不支持</video></div>`;
     }
     html += `</div>`;
   });
